@@ -50,6 +50,19 @@
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
+    <nav class="bg-white/80 backdrop-blur-sm shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="text-2xl font-bold text-gray-800">
+                    AI Portfolio Generator
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" class="text-gray-600 hover:text-blue-600 transition">Home</a>
+                    <a href="#portfolio-output" class="text-gray-600 hover:text-blue-600 transition">Generator</a>
+                </div>
+            </div>
+        </div>
+    </nav>
 
     <div class="container mx-auto px-4 py-8 md:py-16">
         <header class="text-center mb-12 fade-in">
@@ -58,8 +71,15 @@
         </header>
 
         <main>
+            <div id="api-key-section" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg text-center fade-in mb-8">
+                <h2 class="text-2xl font-semibold mb-4">1. Add Your Gemini API Key</h2>
+                <p class="text-gray-600 mb-4">Your key is not stored. It's only used in your browser to make requests.</p>
+                <input type="password" id="api-key-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Enter your Gemini API Key here...">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-sm text-blue-600 hover:underline mt-2 inline-block">Get your API key from Google AI Studio</a>
+            </div>
+
             <div id="upload-section" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg text-center fade-in">
-                <h2 class="text-2xl font-semibold mb-4">1. Upload Your Resume</h2>
+                <h2 class="text-2xl font-semibold mb-4">2. Upload Your Resume</h2>
                 <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-blue-500 transition-colors">
                     <input type="file" id="resume-file" class="hidden" accept=".pdf,.docx">
                     <label for="resume-file" class="cursor-pointer">
@@ -94,11 +114,21 @@
                 <!-- AI-generated portfolio preview will be injected here -->
             </div>
         </main>
-
     </div>
+
+    <!-- Build Loading Overlay -->
+    <div id="build-loading-overlay" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center w-11/12 md:w-1/3">
+            <div class="spinner w-12 h-12 border-4 border-gray-200 rounded-full mx-auto"></div>
+            <h3 class="text-2xl font-bold mt-6">Building Your Website...</h3>
+            <p id="build-step-text" class="text-gray-600 mt-2 text-lg h-8 transition-opacity duration-500"></p>
+        </div>
+    </div>
+
 
     <script>
         // --- DOM Element References ---
+        const apiKeyInput = document.getElementById('api-key-input');
         const resumeFileInput = document.getElementById('resume-file');
         const fileNameDisplay = document.getElementById('file-name');
         const generateButton = document.getElementById('generate-button');
@@ -108,10 +138,14 @@
         const errorSection = document.getElementById('error-section');
         const errorMessage = document.getElementById('error-message');
         const portfolioOutput = document.getElementById('portfolio-output');
+        const buildLoadingOverlay = document.getElementById('build-loading-overlay');
+        const buildStepText = document.getElementById('build-step-text');
 
         let resumeText = '';
+        let buildInterval;
 
         // --- Event Listeners ---
+        apiKeyInput.addEventListener('input', validateInputs);
         resumeFileInput.addEventListener('change', handleFileSelect);
         generateButton.addEventListener('click', handlePortfolioGeneration);
 
@@ -130,15 +164,24 @@
 
         // --- Core Functions ---
 
+        function validateInputs() {
+            const apiKey = apiKeyInput.value.trim();
+            const file = resumeFileInput.files[0];
+            if (apiKey && file) {
+                generateButton.disabled = false;
+            } else {
+                generateButton.disabled = true;
+            }
+        }
+
         async function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file) {
                 fileNameDisplay.textContent = file.name;
-                generateButton.disabled = true;
                 setLoadingState(true, "Reading file...");
                 try {
                     await extractTextFromFile(file);
-                    generateButton.disabled = false;
+                    validateInputs();
                 } catch (error) {
                     handleError(error);
                 } finally {
@@ -193,7 +236,11 @@
                 const portfolioData = JSON.parse(portfolioJsonString);
                 
                 uploadSection.style.opacity = '0';
-                setTimeout(() => uploadSection.classList.add('hidden'), 500);
+                document.getElementById('api-key-section').style.opacity = '0';
+                setTimeout(() => {
+                    uploadSection.classList.add('hidden');
+                    document.getElementById('api-key-section').classList.add('hidden');
+                }, 500);
 
                 renderPortfolio(portfolioData);
                 portfolioOutput.classList.remove('hidden');
@@ -207,15 +254,18 @@
         }
 
         async function callGeminiAPI(prompt, expectJson = false) {
-            const apiKey = "AIzaSyDnCzb-ztgsRE4mwaauXbMo0IJA1dX6_cw"; // Provided by Canvas
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                throw new Error("Please enter your Gemini API key before proceeding.");
+            }
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+            if (!response.ok) throw new Error(`API request failed: ${response.status}. Make sure your API key is correct and has access.`);
             const data = await response.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) throw new Error("Invalid API response.");
@@ -243,22 +293,22 @@
                         ${education?.length ? `<section class="portfolio-section"><h2 class="text-3xl font-bold border-b-2 border-blue-600 pb-2 mb-4">Education</h2><div class="space-y-6">${education.map(edu => `<div><h3 class="text-2xl font-semibold">${edu.degree || ''}</h3><p class="text-xl text-gray-700">${edu.institution || ''}</p><p class="text-md text-gray-500">${edu.year || ''}</p></div>`).join('')}</div></section>` : ''}
                     </div>
                 </div>
-                <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden mt-8 p-8 md:p-12">
+                <div id="builder-section" class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden mt-8 p-8 md:p-12">
                     <section class="portfolio-section">
                         <h2 class="text-3xl font-bold border-b-2 border-purple-600 pb-2 mb-4">✨ AI Website Builder</h2>
-                        <p class="text-lg mb-4 text-gray-600">2. Paste a job description.</p>
+                        <p class="text-lg mb-4 text-gray-600">3. Paste a job description.</p>
                         <textarea id="job-description" class="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition" placeholder="Paste the full job description here..."></textarea>
                         <div class="mt-4">
-                            <button id="customize-website-btn" class="bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-transform transform hover:scale-105">3. Customize Your Website</button>
+                            <button id="customize-website-btn" class="bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-transform transform hover:scale-105">4. Customize Your Website</button>
                         </div>
                         
                         <!-- Customization Section -->
                         <div id="customization-section" class="hidden mt-6 p-6 border-t-2 border-dashed">
                             <h3 class="text-2xl font-bold mb-4">Personalize Your Site</h3>
-                            <div class="space-y-6">
+                            <div class="grid md:grid-cols-2 gap-8">
                                 <!-- Color Theme -->
-                                <div>
-                                    <h4 class="text-lg font-semibold mb-2">Color Theme</h4>
+                                <div class="space-y-3">
+                                    <h4 class="text-lg font-semibold">Color Theme</h4>
                                     <div class="flex flex-wrap gap-3 custom-radio">
                                         <div class="custom-radio"><input type="radio" id="color-blue" name="color-scheme" value="Midnight Blue" checked><label for="color-blue">Midnight Blue</label></div>
                                         <div class="custom-radio"><input type="radio" id="color-green" name="color-scheme" value="Forest Green"><label for="color-green">Forest Green</label></div>
@@ -267,16 +317,32 @@
                                     </div>
                                 </div>
                                 <!-- Tone of Voice -->
-                                <div>
-                                    <h4 class="text-lg font-semibold mb-2">Tone of Voice (for 'About Me' section)</h4>
+                                <div class="space-y-3">
+                                    <h4 class="text-lg font-semibold">Tone of Voice</h4>
                                     <div class="flex flex-wrap gap-3 custom-radio">
                                         <div class="custom-radio"><input type="radio" id="tone-prof" name="tone" value="Professional" checked><label for="tone-prof">Professional</label></div>
                                         <div class="custom-radio"><input type="radio" id="tone-enth" name="tone" value="Enthusiastic"><label for="tone-enth">Enthusiastic</label></div>
                                         <div class="custom-radio"><input type="radio" id="tone-conf" name="tone" value="Direct and Confident"><label for="tone-conf">Confident</label></div>
                                     </div>
                                 </div>
+                                 <!-- Layout Style -->
+                                <div class="space-y-3">
+                                    <h4 class="text-lg font-semibold">Layout Style</h4>
+                                    <div class="flex flex-wrap gap-3 custom-radio">
+                                        <div class="custom-radio"><input type="radio" id="layout-classic" name="layout-style" value="Classic Single-Column" checked><label for="layout-classic">Classic</label></div>
+                                        <div class="custom-radio"><input type="radio" id="layout-modern" name="layout-style" value="Modern Two-Column"><label for="layout-modern">Modern</label></div>
+                                    </div>
+                                </div>
+                                <!-- Font Style -->
+                                <div class="space-y-3">
+                                    <h4 class="text-lg font-semibold">Font Pairing</h4>
+                                    <div class="flex flex-wrap gap-3 custom-radio">
+                                        <div class="custom-radio"><input type="radio" id="font-sans" name="font-style" value="Modern Sans-Serif" checked><label for="font-sans">Sans-Serif</label></div>
+                                        <div class="custom-radio"><input type="radio" id="font-serif" name="font-style" value="Classic Serif & Sans"><label for="font-serif">Serif Headings</label></div>
+                                    </div>
+                                </div>
                             </div>
-                            <button id="create-website-btn" class="mt-8 w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">4. Build My Website!</button>
+                            <button id="create-website-btn" class="mt-8 w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">5. Build My Website!</button>
                         </div>
 
                         <div id="website-output-section" class="hidden mt-6">
@@ -323,15 +389,17 @@
             
             const colorScheme = document.querySelector('input[name="color-scheme"]:checked').value;
             const tone = document.querySelector('input[name="tone"]:checked').value;
+            const layoutStyle = document.querySelector('input[name="layout-style"]:checked').value;
+            const fontStyle = document.querySelector('input[name="font-style"]:checked').value;
 
             const outputSection = document.getElementById('website-output-section');
-            setLoadingState(true, 'Building your tailored website...');
+            startBuildAnimation();
             outputSection.classList.add('hidden');
 
             try {
                 const prompt = `
                 Generate a complete, single-file, responsive HTML portfolio website for a candidate applying for a specific job.
-                The website must be visually appealing, modern, professional, and include animations.
+                The website must be visually appealing, modern, professional, and include animations. It must be fully responsive on all devices.
 
                 INPUTS:
                 1. Resume Text: --- ${resumeText} ---
@@ -339,39 +407,75 @@
                 3. Customization Choices:
                    - Color Theme: ${colorScheme}
                    - Tone of Voice for 'About' section: ${tone}
+                   - Layout Style: ${layoutStyle}
+                   - Font Style: ${fontStyle}
                 
                 DETAILED INSTRUCTIONS:
                 1.  **DOCTYPE & Head:** Start with <!DOCTYPE html> and include a <head> with UTF-8, viewport meta tag, and a relevant <title>.
-                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head . Also include the 'Inter' font from Google Fonts.
-                3.  **Color Scheme:** Apply the "${colorScheme}" color theme. Use the theme's primary color for headings, buttons, links, and accents.
-                4.  **Navbar:** Create a sticky, semi-transparent, blurred backdrop navbar with smooth-scrolling links to "About", "Experience", "Skills", and "Contact".
-                5.  **Hero Section:** Create a powerful hero section with a large, compelling headline tailored to the job role.
-                6.  **Content Sections:**
+                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head: <script src="https://cdn.tailwindcss.com">. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
+                3.  **Responsiveness:** This is critical. Use Tailwind's responsive prefixes (sm:, md:, lg:) extensively. The layout must be mobile-first and adapt perfectly from small phones to large desktops without horizontal scrolling. Use CSS Grid and Flexbox for layout structures.
+                4.  **Color Scheme:** Apply the "${colorScheme}" color theme. Use the theme's primary color for headings, buttons, links, and accents.
+                5.  **Navbar:** Create a sticky, semi-transparent, blurred backdrop navbar with smooth-scrolling links to "About", "Experience", "Skills", and "Contact". Ensure it is responsive and collapses into a hamburger menu on mobile.
+                6.  **Layout:** Implement the "${layoutStyle}". For a two-column layout, consider using CSS Grid (e.g., 'grid grid-cols-1 md:grid-cols-3 gap-8') to place main content and a sidebar.
+                7.  **Content Sections:**
                     * Use alternating background colors (e.g., white and a very light gray/theme color) for visual separation.
                     * Each section must have a clear heading with a relevant, simple inline SVG icon next to it.
-                    * **About/Why Me Section:** This is CRITICAL. Write this section in a "${tone}" tone. It must directly address how the candidate's skills and experience from the resume align with the requirements in the job description.
+                    * **About/Why Me Section:** Write this section in a "${tone}" tone. It must directly address how the candidate's skills and experience from the resume align with the requirements in the job description.
                     * **Experience Section:** Display work history as a timeline. Each job must be a 'card' with a shadow, rounded corners, and a subtle scale-up animation on hover ('hover:scale-105 transition-transform').
                     * **Skills Section:** Display skills as stylish pills/badges.
-                7.  **Animations & Interactivity:**
+                8.  **Animations & Interactivity:**
                     * Add subtle hover effects on all links and buttons.
                     * **Crucially, add a JavaScript snippet at the bottom to make sections fade in as they are scrolled into view.** Use the Intersection Observer API for this.
-                8.  **Final Output:** The entire output MUST be a single, complete HTML file string, starting with <!DOCTYPE html> and ending with </html>. Do not include any markdown like \`\`\`html.
+                9.  **Final Output:** The entire output MUST be a single, complete HTML file string, starting with <!DOCTYPE html> and ending with </html>. Do not include any markdown like \`\`\`html.
                 `;
 
                 const websiteHtml = await callGeminiAPI(prompt);
+                const cleanedHtml = websiteHtml.replace(/```html|```/g, '').trim();
                 const websiteCode = document.getElementById('website-code');
-                websiteCode.value = websiteHtml;
+                websiteCode.value = cleanedHtml;
                 outputSection.classList.remove('hidden');
                 outputSection.classList.add('fade-in');
                 
-                document.getElementById('download-website-btn').onclick = () => downloadFile(websiteHtml, 'index.html', 'text/html');
-                document.getElementById('preview-website-btn').onclick = () => previewWebsite(websiteHtml);
+                document.getElementById('download-website-btn').onclick = () => downloadFile(cleanedHtml, 'index.html', 'text/html');
+                document.getElementById('preview-website-btn').onclick = () => previewWebsite(cleanedHtml);
 
             } catch (error) {
                 alert(`Error creating website: ${error.message}`);
             } finally {
-                setLoadingState(false);
+                stopBuildAnimation();
             }
+        }
+
+        const buildSteps = [
+            "Analyzing job description...",
+            "Designing a custom layout...",
+            "Writing a compelling 'About Me' section...",
+            "Highlighting your key skills...",
+            "Structuring your experience...",
+            "Assembling website components...",
+            "Polishing the design...",
+            "Finalizing animations...",
+            "Almost there..."
+        ];
+
+        function startBuildAnimation() {
+            let step = 0;
+            buildStepText.textContent = buildSteps[step];
+            buildLoadingOverlay.classList.remove('hidden');
+            
+            buildInterval = setInterval(() => {
+                step = (step + 1) % buildSteps.length;
+                buildStepText.style.opacity = 0;
+                setTimeout(() => {
+                    buildStepText.textContent = buildSteps[step];
+                    buildStepText.style.opacity = 1;
+                }, 500);
+            }, 2000);
+        }
+
+        function stopBuildAnimation() {
+            clearInterval(buildInterval);
+            buildLoadingOverlay.classList.add('hidden');
         }
         
         function previewWebsite(htmlContent) {
@@ -397,6 +501,7 @@
 
         function handleError(error) {
             console.error(error);
+            stopBuildAnimation(); // Ensure build animation stops on error
             setLoadingState(false);
             errorMessage.textContent = error.message || "An unknown error occurred.";
             errorSection.classList.remove('hidden');
