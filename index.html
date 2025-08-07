@@ -234,9 +234,9 @@
         }
 
         async function callGeminiAPI(prompt, expectJson = false) {
-            // This function now calls our own backend proxy
-            const apiUrl = `/api/generate`; 
-            
+            // CORRECTED: Use the full, absolute URL of your deployed Render backend.
+            const apiUrl = `https://resumetowebsite.onrender.com/api/generate`; 
+
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -244,8 +244,14 @@
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API request failed: ${errorData.error || 'Unknown error from server'}`);
+                // Try to get a more specific error message from the backend's JSON response
+                try {
+                    const errorData = await response.json();
+                    throw new Error(`API request failed: ${errorData.error || 'Unknown server error'}`);
+                } catch (e) {
+                    // If the response isn't JSON, throw a generic error
+                    throw new Error(`API request failed with status ${response.status}. The server did not respond with valid JSON.`);
+                }
             }
 
             const data = await response.json();
@@ -398,7 +404,7 @@
                 
                 DETAILED INSTRUCTIONS:
                 1.  **DOCTYPE & Head:** Start with <!DOCTYPE html> and include a <head> with UTF-8, viewport meta tag, and a relevant <title>.
-                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head:. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
+                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head: <script src="https://cdn.tailwindcss.com"></script>. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
                 3.  **Responsiveness:** This is critical. Use Tailwind's responsive prefixes (sm:, md:, lg:) extensively. The layout must be mobile-first and adapt perfectly from small phones to large desktops without horizontal scrolling. Use CSS Grid and Flexbox for layout structures.
                 4.  **Color Scheme:** Apply the "${colorScheme}" color theme. Use the theme's primary color for headings, buttons, links, and accents.
                 5.  **Navbar:** Create a sticky, semi-transparent, blurred backdrop navbar with smooth-scrolling links to "About", "Experience", "Skills", and "Contact". Ensure it is responsive and collapses into a hamburger menu on mobile.
