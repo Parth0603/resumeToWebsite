@@ -11,7 +11,8 @@ app.use(express.json()); // Parse JSON bodies
 app.use(express.static(path.join(__dirname))); // Serve static files (like index.html)
 
 // The secure API endpoint
-app.post('https://resumetowebsite.onrender.com/api/generate', async (req, res) => {
+// CORRECTED: The path should be local, not the full URL.
+app.post('/api/generate', async (req, res) => {
   try {
     const { prompt } = req.body;
     // Access the key securely from environment variables set in your hosting provider (like Render)
@@ -29,8 +30,7 @@ app.post('https://resumetowebsite.onrender.com/api/generate', async (req, res) =
       contents: [{ parts: [{ text: prompt }] }],
     };
 
-    // Using 'node-fetch' or a similar library is recommended for robustness in Node.js
-    // For simplicity, we'll use the built-in fetch if your Node version supports it (v18+)
+    // Using fetch which is available in Node.js v18+
     const geminiResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
