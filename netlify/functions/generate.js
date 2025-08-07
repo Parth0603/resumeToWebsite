@@ -11,10 +11,11 @@ exports.handler = async function (event, context) {
     const apiKey = process.env.GEMINI_API_KEY; // Access the key securely
 
     if (!apiKey) {
-      throw new Error("API key is not set.");
+      throw new Error("API key is not set in Netlify environment variables.");
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // CORRECTED: Using the fastest available model to reduce timeout risk.
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }] }],
@@ -31,7 +32,7 @@ exports.handler = async function (event, context) {
       console.error("Gemini API Error:", errorData);
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: "Failed to fetch from Gemini API." }),
+        body: JSON.stringify({ error: "Failed to fetch from Gemini API. Check your API key and the model name." }),
       };
     }
 
