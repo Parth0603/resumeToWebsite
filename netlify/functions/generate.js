@@ -15,7 +15,7 @@ exports.handler = async function (event, context) {
     }
 
     // CORRECTED: Using the fastest available model to reduce timeout risk.
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }] }],
