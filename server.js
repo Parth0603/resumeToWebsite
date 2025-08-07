@@ -11,7 +11,7 @@ app.use(express.json()); // Parse JSON bodies
 app.use(express.static(path.join(__dirname))); // Serve static files (like index.html)
 
 // The secure API endpoint
-app.post('/api/generate', async (req, res) => {
+app.post('https://resumetowebsite.onrender.com/api/generate', async (req, res) => {
   try {
     const { prompt } = req.body;
     // Access the key securely from environment variables set in your hosting provider (like Render)
