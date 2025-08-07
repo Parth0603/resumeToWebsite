@@ -234,18 +234,18 @@
         }
 
         async function callGeminiAPI(prompt, expectJson = false) {
-            // The new URL points to your own serverless function
-            const apiUrl = `/.netlify/functions/generate`; 
+            // This function now calls our own backend proxy
+            const apiUrl = `/api/generate`; 
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: prompt }) // Send the prompt in the body
+                body: JSON.stringify({ prompt: prompt })
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(`API request failed: ${errorData.error || 'Unknown error'}`);
+                throw new Error(`API request failed: ${errorData.error || 'Unknown error from server'}`);
             }
 
             const data = await response.json();
@@ -398,7 +398,7 @@
                 
                 DETAILED INSTRUCTIONS:
                 1.  **DOCTYPE & Head:** Start with <!DOCTYPE html> and include a <head> with UTF-8, viewport meta tag, and a relevant <title>.
-                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact tailwind script tag in the head:. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
+                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head:. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
                 3.  **Responsiveness:** This is critical. Use Tailwind's responsive prefixes (sm:, md:, lg:) extensively. The layout must be mobile-first and adapt perfectly from small phones to large desktops without horizontal scrolling. Use CSS Grid and Flexbox for layout structures.
                 4.  **Color Scheme:** Apply the "${colorScheme}" color theme. Use the theme's primary color for headings, buttons, links, and accents.
                 5.  **Navbar:** Create a sticky, semi-transparent, blurred backdrop navbar with smooth-scrolling links to "About", "Experience", "Skills", and "Contact". Ensure it is responsive and collapses into a hamburger menu on mobile.
