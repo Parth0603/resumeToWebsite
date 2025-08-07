@@ -71,15 +71,8 @@
         </header>
 
         <main>
-            <div id="api-key-section" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg text-center fade-in mb-8">
-                <h2 class="text-2xl font-semibold mb-4">1. Add Your Gemini API Key</h2>
-                <p class="text-gray-600 mb-4">Your key is not stored. It's only used in your browser to make requests.</p>
-                <input type="password" id="api-key-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Enter your Gemini API Key here...">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-sm text-blue-600 hover:underline mt-2 inline-block">Get your API key from Google AI Studio</a>
-            </div>
-
             <div id="upload-section" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg text-center fade-in">
-                <h2 class="text-2xl font-semibold mb-4">2. Upload Your Resume</h2>
+                <h2 class="text-2xl font-semibold mb-4">1. Upload Your Resume</h2>
                 <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-blue-500 transition-colors">
                     <input type="file" id="resume-file" class="hidden" accept=".pdf,.docx">
                     <label for="resume-file" class="cursor-pointer">
@@ -128,7 +121,6 @@
 
     <script>
         // --- DOM Element References ---
-        const apiKeyInput = document.getElementById('api-key-input');
         const resumeFileInput = document.getElementById('resume-file');
         const fileNameDisplay = document.getElementById('file-name');
         const generateButton = document.getElementById('generate-button');
@@ -145,7 +137,6 @@
         let buildInterval;
 
         // --- Event Listeners ---
-        apiKeyInput.addEventListener('input', validateInputs);
         resumeFileInput.addEventListener('change', handleFileSelect);
         generateButton.addEventListener('click', handlePortfolioGeneration);
 
@@ -164,24 +155,15 @@
 
         // --- Core Functions ---
 
-        function validateInputs() {
-            const apiKey = apiKeyInput.value.trim();
-            const file = resumeFileInput.files[0];
-            if (apiKey && file) {
-                generateButton.disabled = false;
-            } else {
-                generateButton.disabled = true;
-            }
-        }
-
         async function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file) {
                 fileNameDisplay.textContent = file.name;
+                generateButton.disabled = true;
                 setLoadingState(true, "Reading file...");
                 try {
                     await extractTextFromFile(file);
-                    validateInputs();
+                    generateButton.disabled = false;
                 } catch (error) {
                     handleError(error);
                 } finally {
@@ -236,10 +218,8 @@
                 const portfolioData = JSON.parse(portfolioJsonString);
                 
                 uploadSection.style.opacity = '0';
-                document.getElementById('api-key-section').style.opacity = '0';
                 setTimeout(() => {
                     uploadSection.classList.add('hidden');
-                    document.getElementById('api-key-section').classList.add('hidden');
                 }, 500);
 
                 renderPortfolio(portfolioData);
@@ -254,21 +234,27 @@
         }
 
         async function callGeminiAPI(prompt, expectJson = false) {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                throw new Error("Please enter your Gemini API key before proceeding.");
-            }
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            // The new URL points to your own serverless function
+            const apiUrl = `/.netlify/functions/generate`; 
+            
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ prompt: prompt }) // Send the prompt in the body
             });
-            if (!response.ok) throw new Error(`API request failed: ${response.status}. Make sure your API key is correct and has access.`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API request failed: ${errorData.error || 'Unknown error'}`);
+            }
+
             const data = await response.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error("Invalid API response.");
+
+            if (!text) {
+                throw new Error("Invalid API response from the server function.");
+            }
+            
             return expectJson ? text.replace(/```json|```/g, '').trim() : text;
         }
 
@@ -412,7 +398,7 @@
                 
                 DETAILED INSTRUCTIONS:
                 1.  **DOCTYPE & Head:** Start with <!DOCTYPE html> and include a <head> with UTF-8, viewport meta tag, and a relevant <title>.
-                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact script tag in the head: <script src="https://cdn.tailwindcss.com">. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
+                2.  **Tailwind CSS & Font:** Use Tailwind CSS for all styling. Include this exact tailwind script tag in the head:. Based on the user's font choice, include the correct Google Fonts ('Inter' for Sans-Serif, or 'Lora' and 'Inter' for Serif Headings).
                 3.  **Responsiveness:** This is critical. Use Tailwind's responsive prefixes (sm:, md:, lg:) extensively. The layout must be mobile-first and adapt perfectly from small phones to large desktops without horizontal scrolling. Use CSS Grid and Flexbox for layout structures.
                 4.  **Color Scheme:** Apply the "${colorScheme}" color theme. Use the theme's primary color for headings, buttons, links, and accents.
                 5.  **Navbar:** Create a sticky, semi-transparent, blurred backdrop navbar with smooth-scrolling links to "About", "Experience", "Skills", and "Contact". Ensure it is responsive and collapses into a hamburger menu on mobile.
